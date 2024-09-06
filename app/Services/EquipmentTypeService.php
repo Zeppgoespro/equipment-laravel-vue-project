@@ -9,7 +9,7 @@ class EquipmentTypeService
 {
 
     /**
-     * Получаем постраничный список типов оборудования с возможностью поиска.
+     * Получаем постраничный список типов оборудования с возможностью поиска
      */
     public function getPaginatedList($queryParams)
     {

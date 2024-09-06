@@ -11,7 +11,7 @@ class EquipmentType extends Model
 
     protected $fillable = ['name', 'mask'];
 
-    public function equipments()
+    public function equipment()
     {
         return $this->hasMany(Equipment::class);
     }

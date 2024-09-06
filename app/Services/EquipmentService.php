@@ -6,10 +6,9 @@ use App\Models\Equipment;
 use App\Models\EquipmentType;
 use App\Http\Resources\EquipmentResource;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\ValidationException;
 
 /**
- * Получаем постраничный список оборудования с возможностью поиска.
+ * Получаем постраничный список оборудования с возможностью поиска
  */
 class EquipmentService
 {
@@ -32,17 +31,20 @@ class EquipmentService
      */
     public function store(array $data)
     {
-        $result =['errors' => [], 'succes' => []];
+        $result = ['errors' => [], 'success' => []];
         DB::beginTransaction();
 
         try {
+            if (isset($data['equipment_type_id'])) {
+                $data = [$data];  // Превращаем в массив единичный экземпляр
+            }
+
             foreach ($data as $item) {
-                // Валидируем серийный номер маской
                 $equipmentType = EquipmentType::findOrFail($item['equipment_type_id']);
-                if (!$this->ValidateSerialNumber($equipmentType->mask, $item['serial_number'])) {
+                if (!$this->validateSerialNumber($equipmentType->mask, $item['serial_number'])) {
                     $result['errors'][] = [
-                        'index'     => array_search($item, $data),
-                        'message'   => 'Серийный номер не соответствует маске для данного типа оборудования.',
+                        'index'   => array_search($item, $data),
+                        'message' => 'The serial number does not match the mask for this type of equipment.',
                     ];
                     continue;
                 }
@@ -55,7 +57,7 @@ class EquipmentService
 
         } catch (\Exception $e) {
             DB::rollBack();
-            $result['errors'][] = $e->getMessage();
+            $result['errors'][] = ['message' => $e->getMessage()];
         }
 
         return response()->json($result, empty($result['errors']) ? 200 : 400);
@@ -77,16 +79,33 @@ class EquipmentService
     {
         $equipment = Equipment::findOrFail($id);
         $equipment->delete();
-        return response()->json(['message' => 'Успешно удалено!']);
+        return response()->json(['message' => 'Successfully removed!']);
     }
 
     protected function validateSerialNumber($mask, $serialNumber)
     {
-        $pattern = '/^' . str_replace(
-            ['N', 'A', 'a', 'X', 'Z'],
-            ['\d', '[A-Z]', '[a-z]', '[A-Z0-9]', '[-_@]'],
-            $mask
-        ) . '$/';
-        return preg_match($pattern, $serialNumber);
+        // Делаем шаблон
+        $pattern = '/^' . strtr($mask, [
+            'N' => '\d',         // Цифра от 0 до 9
+            'A' => '[A-Z]',      // Прописная буква
+            'a' => '[a-z]',      // Строчная буква
+            'X' => '[A-Z0-9]',   // Заглавная буква или цифра
+            'Z' => '[-_@]',      // Символ из списка: "-", "_", "@"
+        ]) . '$/';
+
+        // Добавляем в лог сгенерированный шаблон и серийный номер для отладки
+        logger()->info("Validating Serial Number", [
+            'pattern' => $pattern,
+            'serial_number' => $serialNumber,
+            'mask' => $mask
+        ]);
+
+        $isValid = preg_match($pattern, $serialNumber);
+
+        // Записываем результат проверки
+        logger()->info("Validation Result", ['isValid' => $isValid]);
+
+        return $isValid;
     }
+
 }

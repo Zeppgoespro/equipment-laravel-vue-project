@@ -23,7 +23,7 @@ class StoreEquipmentRequest extends FormRequest
     {
         return [
             'equipment_type_id' => 'required|exists:equipment_types,id',
-            'serial_number'     => 'required|string|unique:equipments,serial_number',
+            'serial_number'     => 'required|string|unique:equipment,serial_number',
             'desc'              => 'nullable|string',
         ];
     }
