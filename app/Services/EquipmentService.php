@@ -8,18 +8,26 @@ use App\Http\Resources\EquipmentResource;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Получаем постраничный список оборудования с возможностью поиска
+ * Сервис для работы с оборудованием.
  */
 class EquipmentService
 {
+    /**
+     * Получает постраничный список оборудования с возможностью поиска.
+     *
+     * @param array $queryParams Параметры запроса для поиска и фильтрации.
+     * @return \Illuminate\Http\Resources\Json\AnonymousResourceCollection
+     */
     public function getPaginatedList($queryParams)
     {
         $query = Equipment::query();
 
         // Поиск по серийному номеру или описанию
         foreach ($queryParams as $key => $value) {
-            if (in_array($key, ['serial_number', 'desc'])) {
-                $query->where($key, 'like', '%' . $value . '%');
+            if ($key === 'serial_number' && !empty($value)) {
+                $query->where('serial_number', 'like', '%' . $value . '%');
+            } elseif ($key === 'desc' && !empty($value)) {
+                $query->orWhere('desc', 'like', '%' . $value . '%');
             }
         }
 
@@ -27,7 +35,10 @@ class EquipmentService
     }
 
     /**
-     * Сохраняем новое оборудование
+     * Сохраняет новое оборудование.
+     *
+     * @param array $data Данные для создания оборудования.
+     * @return \Illuminate\Http\JsonResponse
      */
     public function store(array $data)
     {
@@ -44,7 +55,7 @@ class EquipmentService
                 if (!$this->validateSerialNumber($equipmentType->mask, $item['serial_number'])) {
                     $result['errors'][] = [
                         'index'   => array_search($item, $data),
-                        'message' => 'The serial number does not match the mask for this type of equipment.',
+                        'message' => 'Серийный номер не соответствует маске для данного типа оборудования.',
                     ];
                     continue;
                 }
@@ -63,11 +74,24 @@ class EquipmentService
         return response()->json($result, empty($result['errors']) ? 200 : 400);
     }
 
+    /**
+     * Возвращает информацию об оборудовании по ID.
+     *
+     * @param int $id ID оборудования.
+     * @return EquipmentResource
+     */
     public function show($id)
     {
         return new EquipmentResource(Equipment::findOrFail($id));
     }
 
+    /**
+     * Обновляет информацию об оборудовании.
+     *
+     * @param int $id ID оборудования.
+     * @param array $data Данные для обновления.
+     * @return EquipmentResource
+     */
     public function update($id, array $data)
     {
         $equipment = Equipment::findOrFail($id);
@@ -75,37 +99,54 @@ class EquipmentService
         return new EquipmentResource($equipment);
     }
 
+    /**
+     * Удаляет оборудование.
+     *
+     * @param int $id ID оборудования.
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function destroy($id)
     {
         $equipment = Equipment::findOrFail($id);
         $equipment->delete();
-        return response()->json(['message' => 'Successfully removed!']);
+        return response()->json(['message' => 'Успешно удалено!']);
     }
 
+    /**
+     * Проверяет, соответствует ли серийный номер маске для типа оборудования.
+     *
+     * @param string $mask Маска серийного номера.
+     * @param string $serialNumber Серийный номер для проверки.
+     * @return bool
+     */
     protected function validateSerialNumber($mask, $serialNumber)
     {
-        // Делаем шаблон
+        // Обрезаем пробелы и проверяем правильность длины серийного номера
+        $serialNumber = trim($serialNumber);
+
+        // Генерируем регулярное выражение
         $pattern = '/^' . strtr($mask, [
             'N' => '\d',         // Цифра от 0 до 9
-            'A' => '[A-Z]',      // Прописная буква
+            'A' => '[A-Z]',      // Заглавная буква
             'a' => '[a-z]',      // Строчная буква
             'X' => '[A-Z0-9]',   // Заглавная буква или цифра
-            'Z' => '[-_@]',      // Символ из списка: "-", "_", "@"
+            'Z' => '[-_@]',      // Один из "-", "_", "@"
         ]) . '$/';
 
-        // Добавляем в лог сгенерированный шаблон и серийный номер для отладки
-        logger()->info("Validating Serial Number", [
+        // Логирование: серийный номер и его символы
+        logger()->info("Валидация серийного номера", [
             'pattern' => $pattern,
             'serial_number' => $serialNumber,
-            'mask' => $mask
+            'mask' => $mask,
+            'length' => strlen($serialNumber),
+            'characters' => str_split($serialNumber)
         ]);
 
         $isValid = preg_match($pattern, $serialNumber);
 
-        // Записываем результат проверки
-        logger()->info("Validation Result", ['isValid' => $isValid]);
+        // Логирование результата валидации
+        logger()->info("Результат валидации", ['isValid' => $isValid]);
 
         return $isValid;
     }
-
 }
