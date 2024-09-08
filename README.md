@@ -1,66 +1,31 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+## Как запустить
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Всё очень просто! Проект запускается с помощью 'Sail' (Docker), 'docker-compose.yml' содержит всё необходимое. В корне проекта есть папка '1-TestTask', там лежат: <b>экспорт базы данных</b>, <b>пдф с условиями задачи</b>, '.env.original' (для удобства). Ещё там есть папка 'screenshots' c изображениями и краткими описаниями на них.
 
-## About Laravel
+В целом структура проекта такая же, как и в любом типовом приложении Laravel, стоит отметить только, что компоненты Vue находятся в 'resources/js/components', а 'App.vue' в 'resources/js'. Запускайте с помощью 'sail npm run build' или 'sail npm run dev'.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Система учёта оборудования
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+### Описание
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+Данный проект представляет собой систему для учёта оборудования с возможностью управления оборудованием и типами оборудования через веб-интерфейс. Основной функционал включает:
 
-## Learning Laravel
+1. Добавление, редактирование и удаление оборудования — пользователи могут добавлять новое оборудование, редактировать существующее, удалять его, а также искать оборудование по серийному номеру или описанию.
+2. Генерация серийных номеров — система автоматически генерирует серийные номера, соответствующие маске выбранного типа оборудования.
+3. Список типов оборудования — пользователи могут просматривать список доступных типов оборудования с возможностью поиска по названию.
+4. Пагинация — в списках оборудования и типов оборудования реализована пагинация для удобной навигации по большому количеству записей.
+5. Индикация загрузки и сообщения об успехе/ошибках — пользователи получают обратную связь в виде индикаторов загрузки, сообщений об успехе или ошибках при выполнении действий.
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+### Что было сделано
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+Начнём с того, что тестовое задание было выполнено в полном объёме и даже с бонусами.
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+1. Созданы компоненты Vue для управления оборудованием и типами оборудования.
+2. Реализованы формы для добавления и редактирования оборудования с валидацией в том числе на клиентской стороне.
+3. Добавлены индикаторы загрузки и сообщения об успехе для улучшения пользовательского опыта.
+4. Добавлена пагинация для списков оборудования и типов оборудования, что позволяет пользователям удобно просматривать большие объемы данных.
+5. Настроен backend с использованием Laravel для обработки запросов, валидации данных и управления данными в базе данных.
 
-## Laravel Sponsors
+### Результат
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
-
-### Premium Partners
-
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[WebReinvent](https://webreinvent.com/)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel/)**
-- **[Cyber-Duck](https://cyber-duck.co.uk)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Jump24](https://jump24.co.uk)**
-- **[Redberry](https://redberry.international/laravel/)**
-- **[Active Logic](https://activelogic.com)**
-- **[byte5](https://byte5.de)**
-- **[OP.GG](https://op.gg)**
-
-## Contributing
-
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
-
-## Code of Conduct
-
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
-
-## Security Vulnerabilities
-
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
-
-## License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+В результате мы получили удобный интерфейс для управления оборудованием и типами оборудования с расширенными возможностями поиска, фильтрации и валидации. Пользователи могут легко добавлять, редактировать и удалять записи, а также получать обратную связь в реальном времени о выполнении их действий. Пагинация и индикаторы загрузки делают работу с приложением более удобной и интуитивно понятной.

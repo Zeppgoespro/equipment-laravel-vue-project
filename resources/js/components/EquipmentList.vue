@@ -242,10 +242,12 @@ export default {
                 });
         },
         deleteEquipment(id) {
+            this.successMessage = '';  // Очистить предыдущее сообщение об успехе
             axios
                 .delete(`/api/equipment/${id}`)
                 .then(() => {
                     this.fetchEquipment();
+                    this.successMessage = 'Оборудование успешно удалено!';  // Показать сообщение об успехе
                 })
                 .catch((error) => {
                     console.error('Ошибка при удалении оборудования:', error);

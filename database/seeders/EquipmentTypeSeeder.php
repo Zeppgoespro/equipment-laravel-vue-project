@@ -22,5 +22,10 @@ class EquipmentTypeSeeder extends Seeder
             'name' => 'D-Link DIR-300',
             'mask' => 'NXXAAXZXaa',
         ]);
+
+        EquipmentType::create([
+            'name' => 'Bobrex BOB-135',
+            'mask' => 'NAAAAXZXXX',
+        ]);
     }
 }
