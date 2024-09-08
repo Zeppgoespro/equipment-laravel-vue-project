@@ -1,63 +1,100 @@
 <template>
-    <div>
-        <h2>Список оборудования</h2>
+    <div class="grand-container">
+        <h2>СПИСОК ОБОРУДОВАНИЯ</h2>
 
         <!-- Выбор типа поиска -->
-        <label>
-            <input type="radio" v-model="searchType" value="serial_number" checked> По серийному номеру
-        </label>
-        <label>
-            <input type="radio" v-model="searchType" value="desc"> По описанию
-        </label>
+        <div class="el-search-container">
+            <h3 style="text-align: center; margin-top: 0;">Поиск оборудования</h3>
+            <div>
+                <label>
+                    <input type="radio" v-model="searchType" value="serial_number" checked> По серийному номеру
+                </label>
+                <label>
+                    <input type="radio" v-model="searchType" value="desc"> По описанию
+                </label>
+            </div>
+            <div>
+                <input v-model="searchQuery" placeholder="Введите ваш запрос..." />
+                <button @click="fetchEquipment">Найти</button>
+            </div>
+        </div>
 
-        <input v-model="searchQuery" placeholder="Введите ваш запрос..." />
-        <button @click="fetchEquipment">Найти</button>
+        <div class="el-container">
+            <!-- Индикатор загрузки для списка оборудования -->
+            <div v-if="loading" class="loading">Загрузка...</div>
 
-        <!-- Индикатор загрузки для списка оборудования -->
-        <div v-if="loading" class="loading">Загрузка...</div>
+            <ul v-else>
+                <li v-for="equipment in equipmentList" :key="equipment.id">
+                    {{ equipment.serial_number }} - {{ equipment.desc }}
+                    <div>
+                        <button @click="editEquipment(equipment)">Изменить</button>
+                        <button @click="deleteEquipment(equipment.id)">Удалить</button>
+                    </div>
+                </li>
+            </ul>
 
-        <ul v-else>
-            <li v-for="equipment in equipmentList" :key="equipment.id">
-                {{ equipment.serial_number }} - {{ equipment.desc }}
-                <button @click="editEquipment(equipment)">Изменить</button>
-                <button @click="deleteEquipment(equipment.id)">Удалить</button>
-            </li>
-        </ul>
+            <!-- Управление пагинацией -->
+            <div v-if="pagination.total > pagination.perPage">
+                <button @click="fetchEquipment(pagination.currentPage - 1)" :disabled="pagination.currentPage === 1">
+                    Назад
+                </button>
+                <button @click="fetchEquipment(pagination.currentPage + 1)" :disabled="pagination.currentPage === pagination.totalPages">
+                    Вперед
+                </button>
+            </div>
+        </div>
 
         <!-- Форма редактирования оборудования -->
-        <div v-if="selectedEquipment && equipmentTypes.length > 0">
+        <div v-if="selectedEquipment && equipmentTypes.length > 0" class="el-edit-container">
             <h3>Редактировать оборудование</h3>
 
             <!-- Выбор типа оборудования -->
-            <select v-model="selectedEquipment.equipment_type_id">
-                <option v-for="type in equipmentTypes" :key="type.id" :value="type.id">
-                    {{ type.name }}
-                </option>
-            </select>
-            <div v-if="errors.selectedEquipment.equipment_type_id" class="error">{{ errors.selectedEquipment.equipment_type_id }}</div>
+            <div>
+                <div class="el-edit-select">
+                    <span>Тип оборудования:</span>
+                    <select v-model="selectedEquipment.equipment_type_id">
+                        <option v-for="type in equipmentTypes" :key="type.id" :value="type.id">
+                            {{ type.name }}
+                        </option>
+                    </select>
+                </div>
+                <div v-if="errors.selectedEquipment.equipment_type_id" class="error">{{ errors.selectedEquipment.equipment_type_id }}</div>
+            </div>
 
             <input v-model="selectedEquipment.serial_number" placeholder="Серийный номер" />
             <button @click="generateSerialNumber('selected')">Сгенерировать серийный номер</button>
             <div v-if="errors.selectedEquipment.serial_number" class="error">{{ errors.selectedEquipment.serial_number }}</div>
 
             <input v-model="selectedEquipment.desc" placeholder="Описание" />
-            <button @click="updateEquipment">Сохранить</button>
-            <button @click="cancelEdit">Отмена</button>
+
+            <div class="el-edit-buttons">
+                <button @click="updateEquipment">Сохранить</button>
+                <button @click="cancelEdit">Отменить</button>
+            </div>
 
             <!-- Индикатор загрузки для формы редактирования -->
             <div v-if="updating" class="loading">Сохранение...</div>
+        </div>
+
+        <div class="success-msg-container">
             <div v-if="successMessage" class="success">{{ successMessage }}</div> <!-- Отображение сообщения об успехе -->
         </div>
 
         <!-- Форма добавления нового оборудования -->
-        <div>
+        <div class="el-create-container">
             <h3>Добавить новое оборудование</h3>
-            <select v-model="newEquipment.equipment_type_id">
-                <option v-for="type in equipmentTypes" :key="type.id" :value="type.id">
-                    {{ type.name }}
-                </option>
-            </select>
-            <div v-if="errors.newEquipment.equipment_type_id" class="error">{{ errors.newEquipment.equipment_type_id }}</div>
+
+            <div>
+                <div class="el-create-select">
+                    <span>Тип оборудования:</span>
+                    <select v-model="newEquipment.equipment_type_id">
+                        <option v-for="type in equipmentTypes" :key="type.id" :value="type.id">
+                            {{ type.name }}
+                        </option>
+                    </select>
+                </div>
+                <div v-if="errors.newEquipment.equipment_type_id" class="error">{{ errors.newEquipment.equipment_type_id }}</div>
+            </div>
 
             <input v-model="newEquipment.serial_number" placeholder="Серийный номер" />
             <button @click="generateSerialNumber('new')">Сгенерировать серийный номер</button>
@@ -66,12 +103,13 @@
             <input v-model="newEquipment.desc" placeholder="Описание" />
             <div v-if="errors.newEquipment.desc" class="error">{{ errors.newEquipment.desc }}</div>
 
-            <button @click="createEquipment">Добавить</button>
-            <button @click="resetCreationForm">Отменить</button> <!-- Новая кнопка "Отменить" для формы создания -->
+            <div class="el-create-buttons">
+                <button @click="createEquipment">Добавить</button>
+                <button @click="resetCreationForm">Отменить</button> <!-- Новая кнопка "Отменить" для формы создания -->
+            </div>
 
             <!-- Индикатор загрузки для формы создания -->
             <div v-if="creating" class="loading">Создание...</div>
-            <div v-if="successMessage" class="success">{{ successMessage }}</div> <!-- Отображение сообщения об успехе -->
 
             <!-- Сообщение об ошибке с бэкенда -->
             <div v-if="errors.newEquipment[0]" class="error">{{ errors.newEquipment[0] }}</div>
@@ -108,21 +146,36 @@ export default {
             loading: false,  // Состояние индикатора загрузки
             creating: false,  // Состояние индикатора загрузки для создания
             updating: false,  // Состояние индикатора загрузки для обновления
-            successMessage: ''  // Состояние сообщения об успехе
+            successMessage: '',  // Состояние сообщения об успехе
+            pagination: {  // Состояние пагинации
+                currentPage: 1,
+                total: 0,
+                perPage: 10,
+                totalPages: 0
+            }
         };
     },
     methods: {
-        fetchEquipment() {
+        /**
+         * Получает список оборудования с возможностью поиска и пагинации.
+         *
+         * @param {number} page Номер страницы.
+         */
+        fetchEquipment(page = 1) {
             this.loading = true;  // Включить индикатор загрузки
-            let searchParams = {};
-            if (this.searchQuery.trim()) {
-                searchParams[this.searchType] = this.searchQuery;
-            }
+            const searchParams = {
+                page: page,
+                [this.searchType]: this.searchQuery.trim()
+            };
 
             axios
                 .get('/api/equipment', { params: searchParams })
                 .then((response) => {
                     this.equipmentList = response.data.data;
+                    this.pagination.currentPage = response.data.meta.current_page;
+                    this.pagination.total = response.data.meta.total;
+                    this.pagination.perPage = response.data.meta.per_page;
+                    this.pagination.totalPages = response.data.meta.last_page;
                 })
                 .catch((error) => {
                     console.error('Ошибка при получении списка оборудования:', error);
@@ -320,28 +373,11 @@ export default {
         },
     },
     mounted() {
-        this.fetchEquipment();
+        this.fetchEquipment();  // Загрузить начальный список оборудования при монтировании
         this.fetchEquipmentTypes();
-    },
+    }
 };
 </script>
 
 <style scoped>
-.error {
-    color: red;
-    margin: 5px 0;
-    font-size: 0.9em;
-}
-
-.loading {
-    color: blue;
-    margin: 10px 0;
-    font-size: 1em;
-}
-
-.success {
-    color: green;
-    margin: 10px 0;
-    font-size: 1em;
-}
 </style>
