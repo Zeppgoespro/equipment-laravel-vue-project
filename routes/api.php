@@ -10,4 +10,5 @@ Route::get('/user', function (Request $request) {
 })->middleware('auth:sanctum');
 
 Route::apiResource('equipment', EquipmentController::class);
-Route::get('equipment-type', [EquipmentTypeController::class, 'index']);
+Route::post('equipment/bulk', [EquipmentController::class, 'storeBulk']);
+Route::apiResource('equipment-type', EquipmentTypeController::class);

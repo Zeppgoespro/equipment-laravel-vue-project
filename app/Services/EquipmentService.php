@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\Equipment;
 use App\Models\EquipmentType;
-use App\Http\Resources\EquipmentResource;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -16,29 +15,38 @@ class EquipmentService
      * Получает постраничный список оборудования с возможностью поиска.
      *
      * @param array $queryParams Параметры запроса для поиска и фильтрации.
-     * @return \Illuminate\Http\Resources\Json\AnonymousResourceCollection
+     * @return \Illuminate\Pagination\LengthAwarePaginator
      */
+    /*
     public function getPaginatedList($queryParams)
     {
         $query = Equipment::query();
 
-        // Поиск по серийному номеру или описанию
+        // Searching logic
         foreach ($queryParams as $key => $value) {
             if ($key === 'serial_number' && !empty($value)) {
                 $query->where('serial_number', 'like', '%' . $value . '%');
             } elseif ($key === 'desc' && !empty($value)) {
                 $query->orWhere('desc', 'like', '%' . $value . '%');
+            } elseif ($key === 'q' && !empty($value)) {
+                // Search across both serial_number and desc for partial matches
+                $query->where(function ($subQuery) use ($value) {
+                    $subQuery->where('serial_number', 'like', '%' . $value . '%')
+                             ->orWhere('desc', 'like', '%' . $value . '%');
+                });
             }
         }
 
-        return EquipmentResource::collection($query->paginate(10));
+        // Return plain data (collection)
+        return $query->paginate(10);
     }
+    */
 
     /**
      * Сохраняет новое оборудование.
      *
      * @param array $data Данные для создания оборудования.
-     * @return \Illuminate\Http\JsonResponse
+     * @return array
      */
     public function store(array $data)
     {
@@ -46,22 +54,49 @@ class EquipmentService
         DB::beginTransaction();
 
         try {
-            if (isset($data['equipment_type_id'])) {
-                $data = [$data];  // Превращаем в массив единичный экземпляр
+            $equipmentType = EquipmentType::findOrFail($data['equipment_type_id']);
+
+            if (!$this->validateSerialNumber($equipmentType->mask, $data['serial_number'])) {
+                $result['errors'][] = 'Серийный номер не соответствует маске для данного типа оборудования.';
+            } else {
+                $equipment = Equipment::create($data);
+                $result['success'][] = $equipment;
             }
 
-            foreach ($data as $item) {
+            DB::commit();
+        } catch (\Exception $e) {
+            DB::rollBack();
+            $result['errors'][] = ['message' => $e->getMessage()];
+        }
+
+        return $result;
+    }
+
+    /**
+     * Массовое создание оборудования.
+     *
+     * @param array $equipments Массив данных оборудования.
+     * @return array
+     */
+    public function storeBulk(array $equipments)
+    {
+        $result = ['errors' => [], 'success' => []];
+
+        DB::beginTransaction();
+
+        try {
+            foreach ($equipments as $index => $item) {
                 $equipmentType = EquipmentType::findOrFail($item['equipment_type_id']);
+
                 if (!$this->validateSerialNumber($equipmentType->mask, $item['serial_number'])) {
-                    $result['errors'][] = [
-                        'index'   => array_search($item, $data),
-                        'message' => 'Серийный номер не соответствует маске для данного типа оборудования.',
+                    $result['errors'][$index] = [
+                        'message' => 'Серийный номер не соответствует маске для этого типа оборудования.'
                     ];
                     continue;
                 }
 
                 $equipment = Equipment::create($item);
-                $result['success'][] = new EquipmentResource($equipment);
+                $result['success'][$index] = $equipment;
             }
 
             DB::commit();
@@ -71,18 +106,18 @@ class EquipmentService
             $result['errors'][] = ['message' => $e->getMessage()];
         }
 
-        return response()->json($result, empty($result['errors']) ? 200 : 400);
+        return $result;
     }
 
     /**
      * Возвращает информацию об оборудовании по ID.
      *
      * @param int $id ID оборудования.
-     * @return EquipmentResource
+     * @return Equipment
      */
     public function show($id)
     {
-        return new EquipmentResource(Equipment::findOrFail($id));
+        return Equipment::findOrFail($id);
     }
 
     /**
@@ -90,26 +125,26 @@ class EquipmentService
      *
      * @param int $id ID оборудования.
      * @param array $data Данные для обновления.
-     * @return EquipmentResource
+     * @return Equipment
      */
     public function update($id, array $data)
     {
         $equipment = Equipment::findOrFail($id);
         $equipment->update($data);
-        return new EquipmentResource($equipment);
+        return $equipment;
     }
 
     /**
      * Удаляет оборудование.
      *
      * @param int $id ID оборудования.
-     * @return \Illuminate\Http\JsonResponse
+     * @return array
      */
     public function destroy($id)
     {
         $equipment = Equipment::findOrFail($id);
         $equipment->delete();
-        return response()->json(['message' => 'Успешно удалено!']);
+        return ['message' => 'Успешно удалено!'];
     }
 
     /**

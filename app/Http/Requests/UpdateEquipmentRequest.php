@@ -23,8 +23,8 @@ class UpdateEquipmentRequest extends FormRequest
     {
         return [
             'equipment_type_id' => 'required|exists:equipment_types,id',
-            'serial_number'     => 'required|string|unique:equipment,serial_number,' . $this->route('equipment'),
-            'desc'              => 'nullable|string',
+            'serial_number' => 'required|string|unique:equipment,serial_number,' . $this->route('equipment')->id . ',id,equipment_type_id,' . $this->equipment_type_id,
+            'desc' => 'nullable|string',
         ];
     }
 }

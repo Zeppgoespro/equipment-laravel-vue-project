@@ -2,10 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\EquipmentSearchRequest;
 use App\Http\Requests\StoreEquipmentRequest;
 use App\Http\Requests\UpdateEquipmentRequest;
+use App\Http\Requests\BulkStoreEquipmentRequest;
 use App\Services\EquipmentService;
-use Illuminate\Http\Request;
+use App\Models\Equipment;
+use App\Http\Resources\EquipmentResource;
 
 /**
  * Контроллер для управления оборудованием.
@@ -24,18 +27,34 @@ class EquipmentController extends Controller
     /**
      * Возвращает список оборудования с пагинацией и поиском.
      *
-     * @param Request $request HTTP-запрос с параметрами.
+     * @param EquipmentSearchRequest $request HTTP-запрос с параметрами поиска.
      * @return \Illuminate\Http\JsonResponse
      */
-    public function index(Request $request)
+    public function index(EquipmentSearchRequest $request)
     {
-        return $this->equipmentService->getPaginatedList($request->query());
+        $query = Equipment::query();
+
+        // Поиск по 'q' в 'serial_number' и 'desc'
+        if ($request->has('q')) {
+            $query->where('serial_number', 'like', '%' . $request->q . '%')
+                  ->orWhere('desc', 'like', '%' . $request->q . '%');
+        }
+
+        if ($request->has('serial_number')) {
+            $query->where('serial_number', 'like', '%' . $request->serial_number . '%');
+        }
+
+        if ($request->has('desc')) {
+            $query->where('desc', 'like', '%' . $request->desc . '%');
+        }
+
+        return EquipmentResource::collection($query->paginate(10));
     }
 
     /**
      * Создает новое оборудование.
      *
-     * @param StoreEquipmentRequest $request HTTP-запрос с данными для создания.
+     * @param StoreEquipmentRequest $request HTTP-запрос с данными для создания оборудования.
      * @return \Illuminate\Http\JsonResponse
      */
     public function store(StoreEquipmentRequest $request)
@@ -44,36 +63,65 @@ class EquipmentController extends Controller
     }
 
     /**
+     * Массовое создание нового оборудования.
+     *
+     * @param BulkStoreEquipmentRequest $request HTTP-запрос с данными для массового создания оборудования.
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function storeBulk(BulkStoreEquipmentRequest $request)
+    {
+        $equipments = $request->input('equipment');
+        $result = $this->equipmentService->storeBulk($equipments);
+
+        $response = [
+            'errors' => [],
+            'success' => [],
+        ];
+
+        foreach ($result['errors'] as $index => $error) {
+            $response['errors'][(string)$index] = [$error];
+        }
+
+        foreach ($result['success'] as $index => $equipment) {
+            $response['success'][(string)$index] = new EquipmentResource($equipment);
+        }
+
+        return response()->json($response, empty($response['errors']) ? 200 : 400);
+    }
+
+    /**
      * Возвращает информацию об оборудовании по ID.
      *
-     * @param int $id ID оборудования.
+     * @param Equipment $equipment Модель оборудования.
      * @return EquipmentResource
      */
-    public function show($id)
+    public function show(Equipment $equipment)  // Используем неявное привязывание модели
     {
-        return $this->equipmentService->show($id);
+        return new EquipmentResource($equipment);
     }
 
     /**
      * Обновляет информацию об оборудовании.
      *
-     * @param UpdateEquipmentRequest $request HTTP-запрос с данными для обновления.
-     * @param int $id ID оборудования.
+     * @param UpdateEquipmentRequest $request HTTP-запрос с данными для обновления оборудования.
+     * @param Equipment $equipment Модель оборудования.
      * @return EquipmentResource
      */
-    public function update(UpdateEquipmentRequest $request, $id)
+    public function update(UpdateEquipmentRequest $request, Equipment $equipment)  // Используем неявное привязывание модели
     {
-        return $this->equipmentService->update($id, $request->validated());
+        $equipment->update($request->validated());
+        return new EquipmentResource($equipment);
     }
 
     /**
      * Удаляет оборудование.
      *
-     * @param int $id ID оборудования.
+     * @param Equipment $equipment Модель оборудования.
      * @return \Illuminate\Http\JsonResponse
      */
-    public function destroy($id)
+    public function destroy(Equipment $equipment)  // Используем неявное привязывание модели
     {
-        return $this->equipmentService->destroy($id);
+        $equipment->delete();
+        return response()->json(['message' => 'Успешно удалено!']);
     }
 }
