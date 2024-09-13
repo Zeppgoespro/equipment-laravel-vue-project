@@ -145,6 +145,7 @@ body {
 .etl-search-container {
     display: flex;
     justify-content: space-between;
+    flex-direction: column;
     width: 90%;
     gap: 8px;
     margin: 10px 0 22px 0;

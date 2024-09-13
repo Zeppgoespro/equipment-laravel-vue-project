@@ -9,6 +9,7 @@ use App\Http\Requests\BulkStoreEquipmentRequest;
 use App\Services\EquipmentService;
 use App\Models\Equipment;
 use App\Http\Resources\EquipmentResource;
+use Illuminate\Http\Request;
 
 /**
  * Контроллер для управления оборудованием.
@@ -68,10 +69,10 @@ class EquipmentController extends Controller
      * @param BulkStoreEquipmentRequest $request HTTP-запрос с данными для массового создания оборудования.
      * @return \Illuminate\Http\JsonResponse
      */
-    public function storeBulk(BulkStoreEquipmentRequest $request)
+    public function storeBulk(Request $request) // Изменение на общий Request
     {
         $equipments = $request->input('equipment');
-        $result = $this->equipmentService->storeBulk($equipments);
+        $result = $this->equipmentService->storeBulk($equipments); // Сервис обрабатывает валидацию и сохранение
 
         $response = [
             'errors' => [],
@@ -79,14 +80,14 @@ class EquipmentController extends Controller
         ];
 
         foreach ($result['errors'] as $index => $error) {
-            $response['errors'][(string)$index] = [$error];
+            $response['errors'][(string)$index] = $error; // Массив ошибок уже отформатирован
         }
 
         foreach ($result['success'] as $index => $equipment) {
             $response['success'][(string)$index] = new EquipmentResource($equipment);
         }
 
-        return response()->json($response, empty($response['errors']) ? 200 : 400);
+        return response()->json($response, 200); // Всегда возвращаем 200 с структурированными результатами
     }
 
     /**

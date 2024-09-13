@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Equipment;
 use App\Models\EquipmentType;
 use Illuminate\Support\Facades\DB;
+use App\Http\Resources\EquipmentResource;
 
 /**
  * Сервис для работы с оборудованием.
@@ -12,7 +13,7 @@ use Illuminate\Support\Facades\DB;
 class EquipmentService
 {
     /**
-     * Получает постраничный список оборудования с возможностью поиска.
+     * Получает постраничный список оборудования с возможностью поиска - Сейчас не используется
      *
      * @param array $queryParams Параметры запроса для поиска и фильтрации.
      * @return \Illuminate\Pagination\LengthAwarePaginator
@@ -37,7 +38,6 @@ class EquipmentService
             }
         }
 
-        // Return plain data (collection)
         return $query->paginate(10);
     }
     */
@@ -82,69 +82,49 @@ class EquipmentService
     {
         $result = ['errors' => [], 'success' => []];
 
-        DB::beginTransaction();
+        foreach ($equipments as $index => $item) {
+            // Валидация каждого оборудования отдельно
+            $validator = \Illuminate\Support\Facades\Validator::make($item, [
+                'equipment_type_id' => 'required|exists:equipment_types,id',
+                'serial_number' => [
+                    'required',
+                    'string',
+                    'distinct',
+                    'unique:equipment,serial_number,NULL,id,equipment_type_id,' . $item['equipment_type_id'],
+                ],
+                'desc' => 'nullable|string',
+            ]);
 
-        try {
-            foreach ($equipments as $index => $item) {
+            // Если валидация не проходит, добавляем в ошибки и переходим к следующему элементу
+            if ($validator->fails()) {
+                $result['errors'][$index] = $validator->errors()->toArray(); // Сбор всех ошибок для формы
+                logger()->error('Ошибка валидации для формы ' . $index, $validator->errors()->toArray()); // Логируем ошибки валидации
+                continue;
+            }
+
+            // Если валидация проходит, продолжаем создание оборудования
+            try {
+                // Проверка маски серийного номера
                 $equipmentType = EquipmentType::findOrFail($item['equipment_type_id']);
-
                 if (!$this->validateSerialNumber($equipmentType->mask, $item['serial_number'])) {
-                    $result['errors'][$index] = [
-                        'message' => 'Серийный номер не соответствует маске для этого типа оборудования.'
-                    ];
+                    $result['errors'][$index] = ['serial_number' => ['Неверный формат серийного номера для данного типа оборудования.']];
+                    logger()->error('Ошибка валидации серийного номера для формы ' . $index, ['serial_number' => $item['serial_number']]);
                     continue;
                 }
 
+                // Создаем оборудование, если все проверки пройдены
                 $equipment = Equipment::create($item);
-                $result['success'][$index] = $equipment;
+                $result['success'][$index] = new EquipmentResource($equipment); // Возвращаем ресурс созданного оборудования
+                logger()->info('Оборудование успешно создано для формы ' . $index, ['equipment' => $equipment]);
+
+            } catch (\Exception $e) {
+                $result['errors'][$index] = ['general' => [$e->getMessage()]];
+                logger()->error('Произошло исключение при создании оборудования для формы ' . $index, ['exception' => $e->getMessage()]);
             }
-
-            DB::commit();
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            $result['errors'][] = ['message' => $e->getMessage()];
         }
 
-        return $result;
-    }
-
-    /**
-     * Возвращает информацию об оборудовании по ID.
-     *
-     * @param int $id ID оборудования.
-     * @return Equipment
-     */
-    public function show($id)
-    {
-        return Equipment::findOrFail($id);
-    }
-
-    /**
-     * Обновляет информацию об оборудовании.
-     *
-     * @param int $id ID оборудования.
-     * @param array $data Данные для обновления.
-     * @return Equipment
-     */
-    public function update($id, array $data)
-    {
-        $equipment = Equipment::findOrFail($id);
-        $equipment->update($data);
-        return $equipment;
-    }
-
-    /**
-     * Удаляет оборудование.
-     *
-     * @param int $id ID оборудования.
-     * @return array
-     */
-    public function destroy($id)
-    {
-        $equipment = Equipment::findOrFail($id);
-        $equipment->delete();
-        return ['message' => 'Успешно удалено!'];
+        logger()->info('Итоговый массив результатов', $result);
+        return $result; // Возвращаем результат с ошибками и успешными операциями
     }
 
     /**

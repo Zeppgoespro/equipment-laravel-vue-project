@@ -7,10 +7,13 @@
             <h3 style="text-align: center; margin-top: 0;">Поиск оборудования</h3>
             <div>
                 <label>
-                    <input type="radio" v-model="searchType" value="serial_number" checked> По серийному номеру
+                    <input type="radio" v-model="searchType" value="serial_number"> По серийному номеру
                 </label>
                 <label>
                     <input type="radio" v-model="searchType" value="desc"> По описанию
+                </label>
+                <label>
+                    <input type="radio" v-model="searchType" value="q"> Общий поиск
                 </label>
             </div>
             <div>
@@ -20,10 +23,9 @@
         </div>
 
         <div class="el-container">
-            <!-- Индикатор загрузки для списка оборудования -->
+            <!-- Глобальный индикатор загрузки -->
             <div v-if="loading" class="loading">Загрузка...</div>
-
-            <ul v-else>
+            <ul v-if="!loading">
                 <li v-for="equipment in equipmentList" :key="equipment.id">
                     {{ equipment.serial_number }} - {{ equipment.desc }}
                     <div>
@@ -32,16 +34,16 @@
                     </div>
                 </li>
             </ul>
+        </div>
 
-            <!-- Управление пагинацией -->
-            <div v-if="pagination.total > pagination.perPage">
-                <button @click="fetchEquipment(pagination.currentPage - 1)" :disabled="pagination.currentPage === 1">
-                    Назад
-                </button>
-                <button @click="fetchEquipment(pagination.currentPage + 1)" :disabled="pagination.currentPage === pagination.totalPages">
-                    Вперед
-                </button>
-            </div>
+        <!-- Управление пагинацией -->
+        <div v-if="pagination.total > pagination.perPage">
+            <button @click="fetchEquipment(pagination.currentPage - 1)" :disabled="pagination.currentPage === 1">
+                Назад
+            </button>
+            <button @click="fetchEquipment(pagination.currentPage + 1)" :disabled="pagination.currentPage === pagination.totalPages">
+                Вперед
+            </button>
         </div>
 
         <!-- Форма редактирования оборудования -->
@@ -80,39 +82,37 @@
             <div v-if="successMessage" class="success">{{ successMessage }}</div> <!-- Отображение сообщения об успехе -->
         </div>
 
-        <!-- Форма добавления нового оборудования -->
-        <div class="el-create-container">
-            <h3>Добавить новое оборудование</h3>
+        <!-- Формы добавления нового оборудования -->
+        <div v-for="(equipment, index) in newEquipments" :key="index" class="el-create-container">
+            <h3>Добавить новое оборудование {{ index + 1 }}</h3>
 
-            <div>
-                <div class="el-create-select">
-                    <span>Тип оборудования:</span>
-                    <select v-model="newEquipment.equipment_type_id">
-                        <option v-for="type in equipmentTypes" :key="type.id" :value="type.id">
-                            {{ type.name }}
-                        </option>
-                    </select>
-                </div>
-                <div v-if="errors.newEquipment.equipment_type_id" class="error">{{ errors.newEquipment.equipment_type_id }}</div>
+            <div class="el-create-select">
+                <span>Тип оборудования:</span>
+                <select v-model="equipment.equipment_type_id">
+                    <option v-for="type in equipmentTypes" :key="type.id" :value="type.id">
+                        {{ type.name }}
+                    </option>
+                </select>
             </div>
+            <!-- Ошибка для типа оборудования -->
+            <div v-if="bulkErrors[index]?.equipment_type_id" class="error">{{ bulkErrors[index].equipment_type_id[0] }}</div>
 
-            <input v-model="newEquipment.serial_number" placeholder="Серийный номер" />
-            <button @click="generateSerialNumber('new')">Сгенерировать серийный номер</button>
-            <div v-if="errors.newEquipment.serial_number" class="error">{{ errors.newEquipment.serial_number }}</div>
+            <input v-model="equipment.serial_number" placeholder="Серийный номер" />
+            <button @click="generateSerialNumber('new', index)">Сгенерировать серийный номер</button>
+            <!-- Ошибка для серийного номера -->
+            <div v-if="bulkErrors[index]?.serial_number" class="error">{{ bulkErrors[index].serial_number[0] }}</div>
 
-            <input v-model="newEquipment.desc" placeholder="Описание" />
-            <div v-if="errors.newEquipment.desc" class="error">{{ errors.newEquipment.desc }}</div>
+            <input v-model="equipment.desc" placeholder="Описание" />
 
             <div class="el-create-buttons">
-                <button @click="createEquipment">Добавить</button>
-                <button @click="resetCreationForm">Отменить</button> <!-- Новая кнопка "Отменить" для формы создания -->
+                <button @click="removeEquipmentForm(index)" v-if="newEquipments.length > 1">Удалить</button>
             </div>
+        </div>
 
-            <!-- Индикатор загрузки для формы создания -->
-            <div v-if="creating" class="loading">Создание...</div>
-
-            <!-- Сообщение об ошибке с бэкенда -->
-            <div v-if="errors.newEquipment[0]" class="error">{{ errors.newEquipment[0] }}</div>
+        <!-- Кнопки управления формами добавления -->
+        <div class="el-create-buttons">
+            <button @click="addEquipmentForm">Добавить ещё одно оборудование</button>
+            <button @click="createEquipment">Добавить</button>
         </div>
     </div>
 </template>
@@ -128,41 +128,47 @@ export default {
             equipmentList: [],
             selectedEquipment: null,
             equipmentTypes: [],
-            newEquipment: {
-                equipment_type_id: '',
-                serial_number: '',
-                desc: ''
-            },
+            newEquipments: [this.createNewEquipment()],
             errors: {
-                newEquipment: {
-                    equipment_type_id: '',
-                    serial_number: ''
-                },
+                newEquipments: [],
                 selectedEquipment: {
                     equipment_type_id: '',
                     serial_number: ''
                 }
             },
-            loading: false,  // Состояние индикатора загрузки
-            creating: false,  // Состояние индикатора загрузки для создания
-            updating: false,  // Состояние индикатора загрузки для обновления
-            successMessage: '',  // Состояние сообщения об успехе
-            pagination: {  // Состояние пагинации
+            loading: false,
+            creating: false,
+            updating: false,
+            successMessage: '',
+            pagination: {
                 currentPage: 1,
                 total: 0,
                 perPage: 10,
                 totalPages: 0
-            }
+            },
+            creatingIndex: null,
+            bulkErrors: {},
         };
     },
     methods: {
-        /**
-         * Получает список оборудования с возможностью поиска и пагинации.
-         *
-         * @param {number} page Номер страницы.
-         */
+        createNewEquipment() {
+            return {
+                equipment_type_id: '',
+                serial_number: '',
+                desc: ''
+            };
+        },
+        addEquipmentForm() {
+            this.newEquipments.push(this.createNewEquipment());
+        },
+        removeEquipmentForm(index) {
+            if (this.newEquipments.length > 1) {
+                this.newEquipments.splice(index, 1);
+                this.updateFormIndices();  // Обновление индексов для маппинга ошибок
+            }
+        },
         fetchEquipment(page = 1) {
-            this.loading = true;  // Включить индикатор загрузки
+            this.loading = true;
             const searchParams = {
                 page: page,
                 [this.searchType]: this.searchQuery.trim()
@@ -181,7 +187,7 @@ export default {
                     console.error('Ошибка при получении списка оборудования:', error);
                 })
                 .finally(() => {
-                    this.loading = false;  // Отключить индикатор загрузки
+                    this.loading = false;
                 });
         },
         fetchEquipmentTypes() {
@@ -205,27 +211,15 @@ export default {
         },
         updateEquipment() {
             this.errors.selectedEquipment = { equipment_type_id: '', serial_number: '' };
-            this.updating = true;  // Включить индикатор обновления
-            this.successMessage = '';  // Очистить предыдущее сообщение об успехе
-
-            if (!this.selectedEquipment.equipment_type_id) {
-                this.errors.selectedEquipment.equipment_type_id = "Тип оборудования обязателен.";
-                this.updating = false;  // Отключить индикатор обновления
-                return;
-            }
-
-            if (!this.validateSerialNumber('selected')) {
-                this.errors.selectedEquipment.serial_number = "Серийный номер не соответствует маске.";
-                this.updating = false;  // Отключить индикатор обновления
-                return;
-            }
+            this.updating = true;
+            this.successMessage = '';
 
             axios
                 .put(`/api/equipment/${this.selectedEquipment.id}`, this.selectedEquipment)
                 .then(() => {
                     this.fetchEquipment();
                     this.selectedEquipment = null;
-                    this.successMessage = "Оборудование успешно обновлено!";  // Показать сообщение об успехе
+                    this.successMessage = "Оборудование успешно обновлено!";
                 })
                 .catch((error) => {
                     if (error.response && error.response.data && error.response.data.errors) {
@@ -238,96 +232,84 @@ export default {
                     }
                 })
                 .finally(() => {
-                    this.updating = false;  // Отключить индикатор обновления
+                    this.updating = false;
                 });
         },
         deleteEquipment(id) {
-            this.successMessage = '';  // Очистить предыдущее сообщение об успехе
+            this.successMessage = '';
             axios
                 .delete(`/api/equipment/${id}`)
                 .then(() => {
                     this.fetchEquipment();
-                    this.successMessage = 'Оборудование успешно удалено!';  // Показать сообщение об успехе
+                    this.successMessage = 'Оборудование успешно удалено!';
                 })
                 .catch((error) => {
                     console.error('Ошибка при удалении оборудования:', error);
                 });
         },
         createEquipment() {
-            this.errors.newEquipment = { equipment_type_id: '', serial_number: '' };
-            this.creating = true;  // Включить индикатор создания
-            this.successMessage = '';  // Очистить предыдущее сообщение об успехе
-
-            if (!this.newEquipment.equipment_type_id) {
-                this.errors.newEquipment.equipment_type_id = "Тип оборудования обязателен.";
-                this.creating = false;  // Отключить индикатор создания
-                return;
-            }
-
-            if (!this.validateSerialNumber('new')) {
-                this.errors.newEquipment.serial_number = "Серийный номер не соответствует маске.";
-                this.creating = false;  // Отключить индикатор создания
-                return;
-            }
+            this.errors.newEquipments = [];
+            this.loading = true;  // Запускаем индикатор загрузки для массовой операции
+            this.successMessage = '';
+            const payload = { equipment: this.newEquipments };
 
             axios
-                .post('/api/equipment', this.newEquipment)
-                .then(() => {
-                    this.fetchEquipment();
-                    this.newEquipment = { equipment_type_id: '', serial_number: '', desc: '' };  // Сброс формы после создания
-                    this.successMessage = "Оборудование успешно добавлено!";  // Показать сообщение об успехе
+                .post('/api/equipment/bulk', payload)
+                .then((response) => {
+                    this.bulkErrors = {};  // Сбрасываем все массовые ошибки
+                    let successfulCount = 0;
+
+                    // Обработка успешных ответов о создании
+                    response.data.success.forEach((equipment, index) => {
+                        successfulCount++;
+                        // Удаляем успешно созданное оборудование из списка форм
+                        this.newEquipments.splice(index - successfulCount + 1, 1);
+                    });
+
+                    // Отображение сообщения об успехе, если было добавлено оборудование
+                    if (successfulCount > 0) {
+                        this.successMessage = "Оборудование успешно добавлено!";
+                    }
+
+                    // Обработка ошибок для конкретных форм
+                    this.bulkErrors = response.data.errors;
+
+                    // Реинициализация сообщений об ошибках и форм
+                    this.updateFormIndices();
                 })
                 .catch((error) => {
                     if (error.response && error.response.data && error.response.data.errors) {
-                        this.errors.newEquipment = error.response.data.errors.reduce((acc, curr) => {
-                            acc[curr.index] = curr.message;
-                            return acc;
-                        }, {});
+                        // Отображение сообщений об ошибках, если есть ответ с ошибками валидации
+                        Object.keys(error.response.data.errors).forEach((key) => {
+                            const errorMessage = error.response.data.errors[key];
+                            const index = key.split('.')[1]; // Извлекаем индекс из ключа ошибки
+                            this.bulkErrors[index] = errorMessage.reduce((acc, curr) => {
+                                if (curr.includes('equipment_type_id')) acc.equipment_type_id = curr;
+                                if (curr.includes('serial_number')) acc.serial_number = curr;
+                                return acc;
+                            }, {});
+                        });
                     } else {
                         console.error('Ошибка при создании оборудования:', error);
                     }
                 })
                 .finally(() => {
-                    this.creating = false;  // Отключить индикатор создания
+                    this.loading = false;  // Останавливаем индикатор загрузки
                 });
         },
-        validateSerialNumber(form) {
-            const equipmentType = this.equipmentTypes.find(type => type.id === this[form + 'Equipment'].equipment_type_id);
-            if (!equipmentType) return false;
-
-            const mask = equipmentType.mask;
-            let regexPattern = '^';
-
-            for (const char of mask) {
-                switch (char) {
-                    case 'N':
-                        regexPattern += '\\d';           // Цифра от 0 до 9
-                        break;
-                    case 'A':
-                        regexPattern += '[A-Z]';         // Заглавная буква A-Z
-                        break;
-                    case 'a':
-                        regexPattern += '[a-z]';         // Строчная буква a-z
-                        break;
-                    case 'X':
-                        regexPattern += '[A-Z0-9]';      // Заглавная буква или цифра
-                        break;
-                    case 'Z':
-                        regexPattern += '[-_@]';         // Специальные символы "-", "_", "@"
-                        break;
-                    default:
-                        regexPattern += char;
-                        break;
+        updateFormIndices() {
+            // Сброс ошибок и обновление номеров форм в соответствии с текущим порядком в массиве newEquipments
+            const newBulkErrors = {};
+            this.newEquipments.forEach((_, index) => {
+                if (this.bulkErrors[index]) {
+                    newBulkErrors[index] = this.bulkErrors[index];
                 }
-            }
-
-            regexPattern += '$';
-
-            const pattern = new RegExp(regexPattern);
-            return pattern.test(this[form + 'Equipment'].serial_number);
+            });
+            this.bulkErrors = newBulkErrors;
         },
-        generateSerialNumber(form) {
-            const equipmentType = this.equipmentTypes.find(type => type.id === this[form + 'Equipment'].equipment_type_id);
+        generateSerialNumber(form, index = null) {
+            const equipment = index !== null ? this.newEquipments[index] : this[form + 'Equipment'];
+            const equipmentType = this.equipmentTypes.find(type => type.id === equipment.equipment_type_id);
             if (!equipmentType) return;
 
             const mask = equipmentType.mask;
@@ -336,46 +318,43 @@ export default {
             for (let char of mask) {
                 switch (char) {
                     case 'N':
-                        serialNumber += Math.floor(Math.random() * 10);  // Генерирует цифру (0-9)
+                        serialNumber += Math.floor(Math.random() * 10);
                         break;
                     case 'A':
-                        serialNumber += String.fromCharCode(65 + Math.floor(Math.random() * 26));  // Генерирует заглавную букву (A-Z)
+                        serialNumber += String.fromCharCode(65 + Math.floor(Math.random() * 26));
                         break;
                     case 'a':
-                        serialNumber += String.fromCharCode(97 + Math.floor(Math.random() * 26));  // Генерирует строчную букву (a-z)
+                        serialNumber += String.fromCharCode(97 + Math.floor(Math.random() * 26));
                         break;
                     case 'X':
                         serialNumber += Math.random() < 0.5
-                            ? String.fromCharCode(65 + Math.floor(Math.random() * 26))  // Генерирует заглавную букву (A-Z)
-                            : Math.floor(Math.random() * 10);  // или цифру (0-9)
+                            ? String.fromCharCode(65 + Math.floor(Math.random() * 26))
+                            : Math.floor(Math.random() * 10);
                         break;
                     case 'Z':
-                        serialNumber += ['-', '_', '@'][Math.floor(Math.random() * 3)];  // Случайный выбор из "-", "_", "@"
+                        serialNumber += ['-', '_', '@'][Math.floor(Math.random() * 3)];
                         break;
                     default:
-                        serialNumber += char;  // Если есть неожиданный символ, просто добавьте его
+                        serialNumber += char;
                 }
             }
 
-            this[form + 'Equipment'].serial_number = serialNumber;
+            equipment.serial_number = serialNumber;
         },
         resetCreationForm() {
-            this.newEquipment = {
-                equipment_type_id: '',
-                serial_number: '',
-                desc: ''
-            };
-            this.errors.newEquipment = { equipment_type_id: '', serial_number: '' };
-            this.successMessage = '';  // Сброс сообщения об успехе
+            this.newEquipments = [this.createNewEquipment()];
+            this.errors.newEquipments = [];
+            this.bulkErrors = {};
+            this.successMessage = '';
         },
         cancelEdit() {
             this.selectedEquipment = null;
             this.errors.selectedEquipment = { equipment_type_id: '', serial_number: '' };
-            this.successMessage = '';  // Сброс сообщения об успехе
+            this.successMessage = '';
         },
     },
     mounted() {
-        this.fetchEquipment();  // Загрузить начальный список оборудования при монтировании
+        this.fetchEquipment();
         this.fetchEquipmentTypes();
     }
 };

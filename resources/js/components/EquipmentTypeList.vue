@@ -2,13 +2,24 @@
     <div class="grand-container">
         <h2>СПИСОК ТИПОВ ОБОРУДОВАНИЯ</h2>
 
-        <!-- Поиск по названию -->
+        <!-- Опции поиска и ввод -->
         <div class="etl-search-container">
-            <input v-model="searchQuery" placeholder="Введите название типа оборудования..." />
+            <div style="display:flex;justify-content:space-between;">
+                <label>
+                    <input type="radio" v-model="searchType" value="name"> По названию
+                </label>
+                <label>
+                    <input type="radio" v-model="searchType" value="mask"> По маске
+                </label>
+                <label>
+                    <input type="radio" v-model="searchType" value="q"> Общий
+                </label>
+            </div>
+            <input v-model="searchQuery" placeholder="Введите запрос..." />
             <button @click="fetchEquipmentTypes">Найти</button>
         </div>
 
-        <!-- Индикатор загрузки для списка типов оборудования -->
+        <!-- Индикатор загрузки -->
         <div class="etl-container">
             <div v-if="loading" class="loading">Загрузка...</div>
 
@@ -29,7 +40,6 @@
                 </button>
             </div>
         </div>
-
     </div>
 </template>
 
@@ -40,6 +50,7 @@ export default {
     data() {
         return {
             searchQuery: '',
+            searchType: 'name',  // Тип поиска по умолчанию
             equipmentTypes: [],
             pagination: {
                 currentPage: 1,
@@ -58,9 +69,11 @@ export default {
          */
         fetchEquipmentTypes(page = 1) {
             this.loading = true;  // Начинаем индикатор загрузки
+
+            // Устанавливаем параметры на основе типа поиска
             const params = {
                 page: page,
-                name: this.searchQuery
+                [this.searchType]: this.searchQuery.trim()
             };
 
             axios
@@ -81,7 +94,7 @@ export default {
         }
     },
     mounted() {
-        this.fetchEquipmentTypes();  // Получить начальный список при загрузке компонента
+        this.fetchEquipmentTypes();  // Получаем начальный список при загрузке компонента
     }
 };
 </script>
